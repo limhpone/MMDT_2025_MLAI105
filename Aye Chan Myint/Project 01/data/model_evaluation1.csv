@@ -1,0 +1,5 @@
+,Train,Test
+Root Mean Squared Error,67146.77,66940.08
+Mean Aboslute Error,48747.49,48634.03
+Mean Aboslute Percentage Error,7.92,7.92
+R2 score,0.89,0.89
