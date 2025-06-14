@@ -1,0 +1,25 @@
+Model,Layers,Total Params,Train Accuracy,Test Accuracy,Dropout,BatchNorm,Training Time (s)
+model_2layers_baseline,"[32, 16]",416962,0.8644,0.3041,False,False,21.28
+model_2layers_dropout,"[32, 16]",416962,0.8625,0.3032,True,False,22.85
+model_2layers_batchnorm,"[32, 16]",417154,0.8643,0.2827,False,True,23.53
+model_2layers_both,"[32, 16]",417154,0.8598,0.2726,True,True,25.71
+model_3layers_baseline,"[64, 32, 16]",835170,0.8641,0.2815,False,False,21.63
+model_3layers_dropout,"[64, 32, 16]",835170,0.8531,0.3047,True,False,24.86
+model_3layers_batchnorm,"[64, 32, 16]",835618,0.8626,0.2808,False,True,25.94
+model_3layers_both,"[64, 32, 16]",835618,0.8595,0.2793,True,True,29.31
+model_4layers_baseline,"[128, 64, 32, 16]",1675682,0.8571,0.2439,False,False,22.69
+model_4layers_dropout,"[128, 64, 32, 16]",1675682,0.8517,0.2865,True,False,27.78
+model_4layers_batchnorm,"[128, 64, 32, 16]",1676642,0.8613,0.2617,False,True,28.63
+model_4layers_both,"[128, 64, 32, 16]",1676642,0.8577,0.2776,True,True,34.04
+model_2layers_wide_baseline,"[256, 128]",3364242,0.8636,0.3013,False,False,22.36
+model_2layers_wide_dropout,"[256, 128]",3364242,0.8649,0.3049,True,False,24.83
+model_2layers_wide_batchnorm,"[256, 128]",3365778,0.8635,0.2904,False,True,24.66
+model_2layers_wide_both,"[256, 128]",3365778,0.865,0.267,True,True,27.21
+model_3layers_wide_baseline,"[256, 128, 64]",3371346,0.861,0.2668,False,False,23.04
+model_3layers_wide_dropout,"[256, 128, 64]",3371346,0.8623,0.2993,True,False,26.67
+model_3layers_wide_batchnorm,"[256, 128, 64]",3373138,0.8633,0.2754,False,True,27.46
+model_3layers_wide_both,"[256, 128, 64]",3373138,0.8632,0.2832,True,True,30.88
+model_4layers_wide_baseline,"[256, 128, 64, 32]",3372850,0.8603,0.2772,False,False,23.9
+model_4layers_wide_dropout,"[256, 128, 64, 32]",3372850,0.8569,0.3041,True,False,29.27
+model_4layers_wide_batchnorm,"[256, 128, 64, 32]",3374770,0.8621,0.2726,False,True,29.66
+model_4layers_wide_both,"[256, 128, 64, 32]",3374770,0.8608,0.275,True,True,35.08

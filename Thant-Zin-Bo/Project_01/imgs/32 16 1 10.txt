@@ -1,0 +1,66 @@
+Model evaluation metrics saved to './data/model_evaluation_train_val_test.csv':
+                                   Train  Validation      Test
+Root Mean Squared Error         88991.23    88117.05   88931.6
+Mean Absolute Error             67101.54    66658.82  67081.37
+Mean Absolute Percentage Error     11.27       11.21     11.23
+R2 score                            0.81        0.81      0.81
+
+3 min 53 sec  
+
+Model Loss Over Epochs (Image )
+
+What it shows: This graph plots the training loss (blue line) and validation loss (orange line) against the number of training epochs. The loss function is Mean Squared Error (MSE).
+
+Observations:
+
+Both training and validation losses start very high (around 3.3 x 10^11 and 1.6 x 10^11 respectively) at epoch 0 and decrease very rapidly in the first 2-3 epochs.
+
+After epoch 3, both losses plateau significantly and remain very close to each other, at a much lower value (around 0.05 x 10^11, or 5 x 10^9).
+
+The training was run for 10 epochs.
+
+Interpretation:
+
+The model is learning effectively in the initial epochs, as indicated by the sharp decrease in loss.
+
+The fact that both training and validation losses are very close and follow a similar pattern suggests that the model is not significantly overfitting with the current settings and number of epochs. Overfitting would typically show the validation loss starting to increase or staying flat while the training loss continues to decrease.
+
+The plateauing indicates that the model, with its current architecture and hyperparameters, has learned as much as it can from the data within these 10 epochs. Further training with the exact same settings is unlikely to yield substantial improvements.
+
+The final loss, while much lower, might still be high in absolute terms depending on the scale of your target variable (adjusted_price).
+
+2. Predicted vs Actual (Test Set) (Image )
+
+What it shows: This is a scatter plot where each blue dot represents a single data point from your test set. The x-axis shows the actual adjusted_price, and the y-axis shows the adjusted_price predicted by your model. The red dashed line represents a perfect prediction (where predicted value = actual value).
+
+Observations:
+
+The data points generally follow the trend of the "Perfect Prediction" line, indicating that the model has learned a meaningful relationship between the features and the target variable. Higher actual values generally correspond to higher predicted values.
+
+However, there's a considerable spread of points around the perfect prediction line. This means for many individual predictions, there's a noticeable difference between the predicted and actual values.
+
+The cloud of points appears somewhat wider (more variance in predictions) as the actual values increase, suggesting potential heteroscedasticity (the model's error variance is not constant across all levels of the independent variables). It might be less accurate for higher-priced properties.
+
+Interpretation:
+
+The model has captured the overall trend but lacks precision.
+
+The spread indicates room for improvement in the model's accuracy.
+
+3. Distribution of Prediction Errors (Residuals) (Test Set) (Image )
+
+What it shows: This is a histogram of the residuals (errors), where error = actual value - predicted value, for the test set. The red dashed line indicates the mean of these errors, and the black solid line indicates a zero error.
+
+Observations:
+
+The distribution of errors is roughly bell-shaped, which is a good sign, suggesting that the errors are somewhat normally distributed around the mean.
+
+The mean error is -581.29. This means, on average, your model tends to overpredict the adjusted_price by a small amount (since actual - predicted is negative, predicted > actual).
+
+The spread of errors is quite wide, ranging roughly from -300,000 to +400,000, with most errors clustered between approximately -150,000 and +150,000.
+
+Interpretation:
+
+The small negative mean error indicates a slight systematic bias, but it's relatively small compared to the range of house prices seen in Graph 2.
+
+The wide distribution of residuals confirms that while the average error is small, individual predictions can be off by a significant margin, reinforcing the need for improved precision seen in Graph 2.

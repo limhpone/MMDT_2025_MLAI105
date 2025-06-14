@@ -1,0 +1,6 @@
+Root Mean Squared Error         61952.86     62305.4  62165.67
+Mean Absolute Error             44823.22     45211.8  44779.67
+Mean Absolute Percentage Error       7.3        7.35      7.26
+R2 score                            0.91         0.9      0.91
+
+4 min 7.6 sec
