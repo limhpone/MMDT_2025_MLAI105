@@ -1,0 +1,6 @@
+Model evaluation metrics saved to './data/model_evaluation_train_val_test.csv':
+                                   Train  Validation      Test
+Root Mean Squared Error         59932.65    60444.96  60126.55
+Mean Absolute Error             43214.21    43749.98  43147.95
+Mean Absolute Percentage Error       7.0        7.08      6.97
+R2 score                            0.91        0.91      0.91
