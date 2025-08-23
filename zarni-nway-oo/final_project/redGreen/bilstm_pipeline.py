@@ -618,8 +618,13 @@ class BiLSTMPipeline:
         done_dir = os.path.join(self.project_root, "data", "model_tester", "done")
         
         # Create directories if they don't exist
+        os.makedirs(raw_dir, exist_ok=True)
         os.makedirs(processed_dir, exist_ok=True)
         os.makedirs(done_dir, exist_ok=True)
+        
+        print(f"📁 Raw directory created/verified: {raw_dir}")
+        print(f"📁 Processed directory created/verified: {processed_dir}")
+        print(f"📁 Done directory created/verified: {done_dir}")
         
         # Check if raw files exist
         if not os.path.exists(raw_dir):
@@ -671,7 +676,7 @@ class BiLSTMPipeline:
             print(f"⏱️  Total execution time: {total_time:.2f} seconds")
             print(f"📊 Processed {len(raw_files)} articles")
             print(f"📁 Files moved to: {done_dir}")
-            print("📈 Analysis reports generated in: 3_testing_analysis/analysis_outputs/")
+            print("📈 Analysis reports generated in: 4_analyzer/analysis_outputs/")
             
             return True
             
@@ -695,10 +700,11 @@ class BiLSTMPipeline:
             env = os.environ.copy()
             env['PYTHONUNBUFFERED'] = '1'
             
-            # Modify the analyzer to use the processed directory
-            modified_script = self.create_temp_analyzer_script(processed_dir)
+            # Set environment variable to tell analyzer to use processed directory
+            env['PROCESSED_DIR'] = processed_dir
             
-            process = subprocess.Popen([sys.executable, '-u', modified_script], 
+            # Run the analyzer script directly
+            process = subprocess.Popen([sys.executable, '-u', script_path], 
                                      stdout=subprocess.PIPE, 
                                      stderr=subprocess.STDOUT,
                                      text=True, 
@@ -718,9 +724,7 @@ class BiLSTMPipeline:
                     print(line, flush=True)
                     output_lines.append(line)
             
-            # Clean up temporary script
-            if os.path.exists(modified_script):
-                os.remove(modified_script)
+
             
             return_code = process.poll()
             elapsed_time = time.time() - start_time

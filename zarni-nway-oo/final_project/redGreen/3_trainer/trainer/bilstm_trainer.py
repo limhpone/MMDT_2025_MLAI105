@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import pickle
 import json
+import shutil
 from datetime import datetime
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix
@@ -328,11 +329,11 @@ class BiLSTMTrainer:
         # Classification report
         print("\nClassification Report:")
         target_names = [self.label_mapping[i] for i in range(3)]
-        class_report = classification_report(y_true_classes, y_pred_classes, target_names=target_names)
+        class_report = classification_report(y_true_classes, y_pred_classes, target_names=target_names, zero_division=0)
         print(class_report)
         
         # Store evaluation results for report
-        class_report_dict = classification_report(y_true_classes, y_pred_classes, target_names=target_names, output_dict=True)
+        class_report_dict = classification_report(y_true_classes, y_pred_classes, target_names=target_names, output_dict=True, zero_division=0)
         self.training_report['evaluation_results'] = {
             'classification_report_text': class_report,
             'classification_report_dict': class_report_dict,
@@ -555,19 +556,9 @@ class BiLSTMTrainer:
         
         plt.tight_layout()
         
-        # Save plot to both locations
-        plot_path = os.path.join(self.model_output_dir, 'training_history.png')
+        # Save plot to session reports directory
+        plot_path = os.path.join(self.session_reports_dir, 'training_history.png')
         plt.savefig(plot_path, dpi=300, bbox_inches='tight')
-        
-        # Also save to training reports directory in new structure
-        reports_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), '3_trainer', 'output_model')
-        if os.path.exists(reports_dir):
-            # Find the latest training directory
-            training_dirs = [d for d in os.listdir(reports_dir) if d.startswith('training_')]
-            if training_dirs:
-                latest_dir = os.path.join(reports_dir, sorted(training_dirs)[-1])
-                reports_plot_path = os.path.join(latest_dir, 'training_history.png')
-                plt.savefig(reports_plot_path, dpi=300, bbox_inches='tight')
         
         print(f"Training history plot saved to: {plot_path}")
         plt.show()
@@ -589,19 +580,9 @@ class BiLSTMTrainer:
         plt.xlabel('Predicted')
         plt.ylabel('Actual')
         
-        # Save plot to both locations
-        plot_path = os.path.join(self.model_output_dir, 'confusion_matrix.png')
+        # Save plot to session reports directory
+        plot_path = os.path.join(self.session_reports_dir, 'confusion_matrix.png')
         plt.savefig(plot_path, dpi=300, bbox_inches='tight')
-        
-        # Also save to training reports directory in new structure
-        reports_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), '3_trainer', 'output_model')
-        if os.path.exists(reports_dir):
-            # Find the latest training directory
-            training_dirs = [d for d in os.listdir(reports_dir) if d.startswith('training_')]
-            if training_dirs:
-                latest_dir = os.path.join(reports_dir, sorted(training_dirs)[-1])
-                reports_plot_path = os.path.join(latest_dir, 'confusion_matrix.png')
-                plt.savefig(reports_plot_path, dpi=300, bbox_inches='tight')
         
         print(f"Confusion matrix saved to: {plot_path}")
         plt.show()
@@ -610,29 +591,49 @@ class BiLSTMTrainer:
         """Save trained model and preprocessing artifacts"""
         print("Saving model and artifacts...")
         
-        # Save model
-        model_path = os.path.join(self.model_output_dir, 'bilstm_model.h5')
+        # Extract timestamp from the existing session directory
+        session_dir_name = os.path.basename(self.session_reports_dir)
+        timestamp = session_dir_name.replace('training_report_', '')
+        session_name = f"training_{timestamp}"
+        
+        # Save model with session name
+        model_filename = f'bilstm_model_{timestamp}.h5'
+        model_path = os.path.join(self.model_output_dir, model_filename)
         self.model.save(model_path)
         print(f"Model saved to: {model_path}")
         
-        # Save tokenizer
-        tokenizer_path = os.path.join(self.model_output_dir, 'tokenizer.pickle')
+        # Save tokenizer to session reports directory
+        tokenizer_path = os.path.join(self.session_reports_dir, 'tokenizer.pickle')
         with open(tokenizer_path, 'wb') as f:
             pickle.dump(self.tokenizer, f)
         print(f"Tokenizer saved to: {tokenizer_path}")
         
-        # Save model parameters
+        # Save model parameters to session reports directory
         params = {
             'vocab_size': self.vocab_size,
             'max_length': self.max_length,
             'label_mapping': self.label_mapping
         }
-        params_path = os.path.join(self.model_output_dir, 'model_params.pickle')
+        params_path = os.path.join(self.session_reports_dir, 'model_params.pickle')
         with open(params_path, 'wb') as f:
             pickle.dump(params, f)
         print(f"Model parameters saved to: {params_path}")
+        
+        # Save session info to session reports directory
+        session_info = {
+            'session_name': session_name,
+            'timestamp': timestamp,
+            'model_filename': model_filename,
+            'training_date': datetime.now().isoformat()
+        }
+        session_info_path = os.path.join(self.session_reports_dir, 'session_info.pickle')
+        with open(session_info_path, 'wb') as f:
+            pickle.dump(session_info, f)
+        print(f"Session info saved to: {session_info_path}")
+        
+        return session_name
     
-    def generate_training_report(self):
+    def generate_training_report(self, session_name=None):
         """Generate comprehensive training report in markdown format"""
         print("Generating comprehensive training report...")
         
@@ -642,38 +643,27 @@ class BiLSTMTrainer:
         end_time = datetime.fromisoformat(self.training_report['end_time'])
         self.training_report['total_training_time'] = str(end_time - start_time)
         
-        # Create training session directory under output_model
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        training_session = f"training_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        reports_dir = os.path.join(project_root, '3_trainer', 'output_model', training_session)
-        os.makedirs(reports_dir, exist_ok=True)
-        
-        # Create timestamped subdirectory for this training session
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        session_dir = os.path.join(reports_dir, f'training_{timestamp}')
-        os.makedirs(session_dir, exist_ok=True)
+        # Use provided session name or create one
+        if session_name is None:
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            session_name = f"training_{timestamp}"
         
         # Generate markdown report
         report_md = self._generate_markdown_content()
         
-        # Save markdown report in reports directory
-        report_path = os.path.join(session_dir, 'training_report.md')
+        # Save markdown report in session reports directory
+        report_path = os.path.join(self.session_reports_dir, 'training_report.md')
         with open(report_path, 'w', encoding='utf-8') as f:
             f.write(report_md)
         
         # Save JSON report for programmatic access
-        json_report_path = os.path.join(session_dir, 'training_report.json')
+        json_report_path = os.path.join(self.session_reports_dir, 'training_report.json')
         with open(json_report_path, 'w', encoding='utf-8') as f:
             json.dump(self.training_report, f, indent=2, ensure_ascii=False)
         
-        # Also save in model output directory for backward compatibility
-        legacy_report_path = os.path.join(self.model_output_dir, 'training_report.md')
-        with open(legacy_report_path, 'w', encoding='utf-8') as f:
-            f.write(report_md)
-        
         print(f"📋 Training report saved to: {report_path}")
         print(f"📊 JSON report saved to: {json_report_path}")
-        print(f"📁 Reports directory: {session_dir}")
+        print(f"📁 Reports directory: {self.session_reports_dir}")
         
         return report_path
     
@@ -993,6 +983,16 @@ This likely explains poor performance on the RED category (minority class).
         """
         print("=== Starting Bi-LSTM Training Pipeline ===")
         
+        # Create training reports directory structure
+        training_reports_dir = os.path.join(self.model_output_dir, 'training_reports')
+        os.makedirs(training_reports_dir, exist_ok=True)
+        
+        # We'll create the session directory later when we save the model
+        # to ensure the timestamp matches
+        self.session_reports_dir = None
+        
+        print(f"📁 Training reports directory ready: {training_reports_dir}")
+        
         # Load data
         texts, labels = self.load_and_prepare_data()
         
@@ -1005,20 +1005,28 @@ This likely explains poor performance on the RED category (minority class).
         # Train model
         history = self.train_model(X, y, epochs=epochs, batch_size=batch_size)
         
-        # Plot results
+        # Create session directory for plotting
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        training_reports_dir = os.path.join(self.model_output_dir, 'training_reports')
+        self.session_reports_dir = os.path.join(training_reports_dir, f"training_report_{timestamp}")
+        os.makedirs(self.session_reports_dir, exist_ok=True)
+        print(f"📁 Created session directory for plotting: {self.session_reports_dir}")
+        
+        # Plot results (now they'll save to the session directory)
         self.plot_training_history(history)
         self.plot_confusion_matrix()
         
-        # Save everything
-        self.save_model_and_artifacts()
+        # Save everything and get session name
+        session_name = self.save_model_and_artifacts()
         
         # Generate comprehensive training report
-        self.generate_training_report()
+        self.generate_training_report(session_name)
         
         # Move processed files from to_process to done
         self.move_processed_files()
         
         print("=== Training Complete! ===")
+        print(f"📋 Check training reports in: {self.session_reports_dir}")
         print("📋 Check training_report.md for detailed analysis and recommendations!")
 
 def main():

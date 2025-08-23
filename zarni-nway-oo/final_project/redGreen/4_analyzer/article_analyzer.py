@@ -44,22 +44,111 @@ class MyanmarArticleAnalyzer:
         """Load trained model and preprocessing artifacts"""
         print("Loading model and artifacts...")
         
-        # Load model
-        model_path = os.path.join(self.model_dir, 'bilstm_model.h5')
+        # Find the latest model
+        model_files = [f for f in os.listdir(self.model_dir) if f.startswith('bilstm_model_') and f.endswith('.h5')]
+        if model_files:
+            # Sort by timestamp and get the latest
+            model_files.sort(reverse=True)
+            latest_model = model_files[0]
+            model_path = os.path.join(self.model_dir, latest_model)
+            print(f"🤖 Using latest model: {latest_model}")
+            
+            # Extract timestamp from model filename
+            timestamp = latest_model.replace('bilstm_model_', '').replace('.h5', '')
+            
+            # Look for corresponding session reports directory
+            training_reports_dir = os.path.join(self.model_dir, 'training_reports')
+            if os.path.exists(training_reports_dir):
+                session_dirs = [d for d in os.listdir(training_reports_dir) if d.startswith('training_report_')]
+                if session_dirs:
+                    # Find the session directory that matches the model timestamp
+                    matching_session = None
+                    for session_dir in session_dirs:
+                        session_timestamp = session_dir.replace('training_report_', '')
+                        if session_timestamp == timestamp:
+                            matching_session = session_dir
+                            break
+                    
+                    if matching_session:
+                        session_path = os.path.join(training_reports_dir, matching_session)
+                        print(f"📁 Found matching session: {matching_session}")
+                        
+                        # Load tokenizer from session directory
+                        tokenizer_path = os.path.join(session_path, 'tokenizer.pickle')
+                        if os.path.exists(tokenizer_path):
+                            with open(tokenizer_path, 'rb') as f:
+                                self.tokenizer = pickle.load(f)
+                            print(f"Tokenizer loaded from: {tokenizer_path}")
+                        else:
+                            # Fallback to main directory
+                            tokenizer_path = os.path.join(self.model_dir, 'tokenizer.pickle')
+                            with open(tokenizer_path, 'rb') as f:
+                                self.tokenizer = pickle.load(f)
+                            print(f"Tokenizer loaded from: {tokenizer_path}")
+                        
+                        # Load model parameters from session directory
+                        params_path = os.path.join(session_path, 'model_params.pickle')
+                        if os.path.exists(params_path):
+                            with open(params_path, 'rb') as f:
+                                self.model_params = pickle.load(f)
+                            print(f"Model parameters loaded from: {params_path}")
+                        else:
+                            # Fallback to main directory
+                            params_path = os.path.join(self.model_dir, 'model_params.pickle')
+                            with open(params_path, 'rb') as f:
+                                self.model_params = pickle.load(f)
+                            print(f"Model parameters loaded from: {params_path}")
+                    else:
+                        # Fallback to main directory
+                        tokenizer_path = os.path.join(self.model_dir, 'tokenizer.pickle')
+                        with open(tokenizer_path, 'rb') as f:
+                            self.tokenizer = pickle.load(f)
+                        print(f"Tokenizer loaded from: {tokenizer_path}")
+                        
+                        params_path = os.path.join(self.model_dir, 'model_params.pickle')
+                        with open(params_path, 'rb') as f:
+                            self.model_params = pickle.load(f)
+                        print(f"Model parameters loaded from: {params_path}")
+                else:
+                    # Fallback to main directory
+                    tokenizer_path = os.path.join(self.model_dir, 'tokenizer.pickle')
+                    with open(tokenizer_path, 'rb') as f:
+                        self.tokenizer = pickle.load(f)
+                    print(f"Tokenizer loaded from: {tokenizer_path}")
+                    
+                    params_path = os.path.join(self.model_dir, 'model_params.pickle')
+                    with open(params_path, 'rb') as f:
+                        self.model_params = pickle.load(f)
+                    print(f"Model parameters loaded from: {params_path}")
+            else:
+                # Fallback to main directory
+                tokenizer_path = os.path.join(self.model_dir, 'tokenizer.pickle')
+                with open(tokenizer_path, 'rb') as f:
+                    self.tokenizer = pickle.load(f)
+                print(f"Tokenizer loaded from: {tokenizer_path}")
+                
+                params_path = os.path.join(self.model_dir, 'model_params.pickle')
+                with open(params_path, 'rb') as f:
+                    self.model_params = pickle.load(f)
+                print(f"Model parameters loaded from: {params_path}")
+        else:
+            # Fallback to legacy model name
+            model_path = os.path.join(self.model_dir, 'bilstm_model.h5')
+            print(f"🤖 Using legacy model: bilstm_model.h5")
+            
+            # Load from main directory for legacy model
+            tokenizer_path = os.path.join(self.model_dir, 'tokenizer.pickle')
+            with open(tokenizer_path, 'rb') as f:
+                self.tokenizer = pickle.load(f)
+            print(f"Tokenizer loaded from: {tokenizer_path}")
+            
+            params_path = os.path.join(self.model_dir, 'model_params.pickle')
+            with open(params_path, 'rb') as f:
+                self.model_params = pickle.load(f)
+            print(f"Model parameters loaded from: {params_path}")
+        
         self.model = load_model(model_path)
         print(f"Model loaded from: {model_path}")
-        
-        # Load tokenizer
-        tokenizer_path = os.path.join(self.model_dir, 'tokenizer.pickle')
-        with open(tokenizer_path, 'rb') as f:
-            self.tokenizer = pickle.load(f)
-        print(f"Tokenizer loaded from: {tokenizer_path}")
-        
-        # Load model parameters
-        params_path = os.path.join(self.model_dir, 'model_params.pickle')
-        with open(params_path, 'rb') as f:
-            self.model_params = pickle.load(f)
-        print(f"Model parameters loaded from: {params_path}")
         
         print(f"Vocabulary size: {self.model_params['vocab_size']}")
         print(f"Max sequence length: {self.model_params['max_length']}")
@@ -554,22 +643,48 @@ def main():
     # Get clean directory paths
     dirs = get_data_directories()
     model_dir = dirs['model_output']
-    test_dir = dirs['model_tester_done']  # Use done folder for testing
+    
+    # Check if we should use a specific processed directory (from pipeline)
+    test_dir = os.environ.get('PROCESSED_DIR')
+    if not test_dir:
+        test_dir = dirs['model_tester_done']  # Use done folder for testing
+    
     output_dir = dirs['analysis_output']
     
-    # Check if model exists
-    if not os.path.exists(os.path.join(model_dir, 'bilstm_model.h5')):
-        print(f"Error: Trained model not found in {model_dir}")
-        print("Please train the model first using the trainer.")
-        return
+    # Create raw directory if it doesn't exist
+    raw_dir = dirs['model_tester_raw']
+    os.makedirs(raw_dir, exist_ok=True)
+    print(f"📁 Raw directory created/verified: {raw_dir}")
+    
+    # Find the latest model
+    model_files = [f for f in os.listdir(model_dir) if f.startswith('bilstm_model_') and f.endswith('.h5')]
+    if model_files:
+        # Sort by timestamp and get the latest
+        model_files.sort(reverse=True)
+        latest_model = model_files[0]
+        model_path = os.path.join(model_dir, latest_model)
+        print(f"🤖 Using latest model: {latest_model}")
+    else:
+        # Fallback to legacy model name
+        model_path = os.path.join(model_dir, 'bilstm_model.h5')
+        if not os.path.exists(model_path):
+            print(f"Error: No trained model found in {model_dir}")
+            print("Please train the model first using the trainer.")
+            return
+        print(f"🤖 Using legacy model: bilstm_model.h5")
     
     # Check if test articles exist
     if not os.path.exists(test_dir):
         print(f"Error: Test directory not found: {test_dir}")
         return
     
+    # Create session-based output directory
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    session_output_dir = os.path.join(output_dir, f"analysis_{timestamp}")
+    os.makedirs(session_output_dir, exist_ok=True)
+    
     # Initialize analyzer
-    analyzer = MyanmarArticleAnalyzer(model_dir, output_dir)
+    analyzer = MyanmarArticleAnalyzer(model_dir, session_output_dir)
     
     # Run analysis
     results = analyzer.analyze_all_articles(test_dir)
