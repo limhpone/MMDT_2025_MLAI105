@@ -1,0 +1,126 @@
+# Data directories and files
+data/
+datasets/
+# Keep scraped data separate from processed data
+data/raw/scraped/
+*.csv
+*.json
+*.jsonl
+*.txt
+*.tsv
+*.xlsx
+*.xls
+*.parquet
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.env/
+.conda/
+miniconda3/
+anaconda3/
+
+# ML Model files
+models/
+checkpoints/
+output_model/
+output_model_backup*/
+training_reports/
+*.model
+*.bin
+*.h5
+*.hdf5
+*.pickle
+*.pkl
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+*.pb
+*.tflite
+
+# Analysis outputs
+analysis_outputs/
+testing_outputs/
+*.png
+*.jpg
+*.jpeg
+*.pdf
+
+# Logs and temporary files
+logs/
+outputs/
+results/
+runs/
+*.log
+*.out
+*.tmp
+*.temp
+*~
+temp_analyzer.py
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.code-workspace
+*.iws
+*.iml
+*.ipr
+.DS_Store
+Thumbs.db
+
+# Jupyter Notebook
+.ipynb_checkpoints
+# Keep notebooks but ignore checkpoints
+
+# Environment and config files
+.env
+.env.local
+.env.*.local
+config.ini
+secrets.json
+
+# Cache directories
+.cache/
+.huggingface/
+.transformers_cache/
+.torch/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Web scraping cache and session files
+*.session
+cookies.txt
+scraped_urls.json
+
+# Myanmar text processing cache
+*.resume
+combined_bigram/
