@@ -55,15 +55,19 @@ def main():
         print("Please run this script from the project root directory.")
         return
     
-    # Check if model exists
-    model_path = os.path.join("2_training", "output_model", "bilstm_model.h5")
-    if not os.path.exists(model_path):
-        print("❌ Error: Trained model not found!")
-        print(f"Expected: {model_path}")
-        print("Please train the model first using the bilstm_pipeline.py")
+    # Check if model exists in final model directory
+    from utils import get_data_directories
+    dirs = get_data_directories()
+    final_model_path = os.path.join(dirs['final_model'], "bilstm_model.h5")
+    
+    if not os.path.exists(final_model_path):
+        print("❌ Error: Final production model not found!")
+        print(f"Expected: {final_model_path}")
+        print("Please run copy_best_model.py to copy the best training model to final directory")
+        print("Or train a new model using the bilstm_pipeline.py")
         return
     
-    print("✅ Model found!")
+    print("✅ Final production model found!")
     
     # Check dependencies
     missing = check_dependencies()

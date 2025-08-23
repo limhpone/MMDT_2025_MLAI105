@@ -967,7 +967,27 @@ This likely explains poor performance on the RED category (minority class).
         
         print(f"Moved {files_moved} files to done folder")
     
-    def run_full_training(self, vocab_size=10000, max_length=100, embedding_dim=100, 
+    def _auto_copy_to_final(self):
+        """Automatically run smart model deployment to final directory"""
+        try:
+            # Import the copy function from the utility script
+            import sys
+            sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+            from copy_best_model import copy_best_model_to_final
+            
+            success = copy_best_model_to_final()
+            if success:
+                print("🎯 Smart deployment completed!")
+                print("🚀 Check final model directory status above")
+            else:
+                print("❌ Smart deployment failed")
+                print("   Please run manually: python copy_best_model.py")
+                
+        except Exception as e:
+            print(f"❌ Error during smart deployment: {e}")
+            print("   Please run manually: python copy_best_model.py")
+    
+    def run_full_training(self, vocab_size=10000, max_length=100, embedding_dim=100,
                          lstm_units=64, dropout_rate=0.3, epochs=10, batch_size=32):
         """
         Run the complete training pipeline
@@ -1028,6 +1048,28 @@ This likely explains poor performance on the RED category (minority class).
         print("=== Training Complete! ===")
         print(f"📋 Check training reports in: {self.session_reports_dir}")
         print("📋 Check training_report.md for detailed analysis and recommendations!")
+        
+        # Auto-copy best model to final directory (always update with latest)
+        best_val_acc = max(history.history['val_accuracy']) if 'val_accuracy' in history.history else 0
+        print(f"\n📊 Model Performance Summary:")
+        print(f"   Best validation accuracy: {best_val_acc:.4f}")
+        
+        # Evaluate performance and provide feedback
+        if best_val_acc >= 0.85:
+            print(f"   Performance Rating: ⭐ EXCELLENT (≥85%)")
+            print(f"   Status: 🎉 Ready for production deployment!")
+        elif best_val_acc >= 0.70:
+            print(f"   Performance Rating: ✅ GOOD (≥70%)")
+            print(f"   Status: 🚀 Suitable for production use")
+        elif best_val_acc >= 0.50:
+            print(f"   Performance Rating: ⚠️ FAIR (≥50%)")
+            print(f"   Status: 🔧 Consider model improvements")
+        else:
+            print(f"   Performance Rating: ❌ POOR (<50%)")
+            print(f"   Status: 🛠️ Needs significant improvements")
+        
+        print(f"\n🔄 Running smart model deployment...")
+        self._auto_copy_to_final()
 
 def main():
     """Main training function"""
