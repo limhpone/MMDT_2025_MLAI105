@@ -238,7 +238,8 @@ class BiLSTMPipeline:
         os.makedirs(dirs['raw_scraped'], exist_ok=True)
         os.makedirs(dirs['raw_to_process'], exist_ok=True)
         
-        print(f"📁 Output will be saved to: {dirs['raw_to_process']}")
+        print(f"📁 Output will be saved to: {dirs['raw_scraped']}")
+        print(f"📁 Files will be moved to: {dirs['raw_to_process']}")
         print()
         print("Available scrapers:")
         print("  1. DVB News")
@@ -323,9 +324,8 @@ class BiLSTMPipeline:
         """Find article files from scraper's session directory and move to our structure"""
         import glob
         
-        # Look for the scraper's session directories (created when running from scrapers dir)
-        scrapers_dir = os.path.join(self.project_root, '1_scrapers')
-        session_pattern = os.path.join(scrapers_dir, 'data', 'raw_data', 'session_*')
+        # Look for the scraper's session directories in the correct location
+        session_pattern = os.path.join(scraped_dir, 'session_*')
         session_dirs = sorted(glob.glob(session_pattern), key=os.path.getmtime, reverse=True)
         
         if not session_dirs:

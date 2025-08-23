@@ -28,7 +28,15 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class MyAwadyScraper:
-    def __init__(self, output_dir: str = "./data/raw_data", session_name: str | None = None):
+    def __init__(self, output_dir: str = None, session_name: str | None = None):
+        # Use the correct data directory from utils
+        if output_dir is None:
+            import sys
+            import os
+            sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+            from utils import get_data_directories
+            dirs = get_data_directories()
+            output_dir = dirs['raw_scraped']
         # Create session folder
         if session_name is None:
             session_name = datetime.now().strftime("session_%Y%m%d_%H%M%S")
