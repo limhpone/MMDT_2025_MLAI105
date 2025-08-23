@@ -177,7 +177,10 @@ class MyanmarArticleClassifier:
 @st.cache_resource
 def load_classifier():
     """Load the classifier (cached for performance)"""
-    model_dir = os.path.join(os.path.dirname(__file__), "2_training", "output_model")
+    # Use the final model directory from utils
+    from utils import get_data_directories
+    dirs = get_data_directories()
+    model_dir = dirs['final_model']
     return MyanmarArticleClassifier(model_dir)
 
 def display_prediction_results(result):

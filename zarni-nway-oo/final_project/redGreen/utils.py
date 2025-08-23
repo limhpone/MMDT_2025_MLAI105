@@ -55,6 +55,7 @@ def get_data_directories():
         'model_tester_processed': os.path.join(project_root, 'data', 'model_tester', 'processed'),
         'model_tester_done': os.path.join(project_root, 'data', 'model_tester', 'done'),
         'model_output': os.path.join(project_root, '3_trainer', 'output_model'),
+        'final_model': os.path.join(project_root, '00_final_model'),
         'analysis_output': os.path.join(project_root, '4_analyzer', 'analysis_outputs')
     }
 

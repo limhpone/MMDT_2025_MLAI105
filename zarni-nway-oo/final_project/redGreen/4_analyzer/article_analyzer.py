@@ -44,6 +44,44 @@ class MyanmarArticleAnalyzer:
         """Load trained model and preprocessing artifacts"""
         print("Loading model and artifacts...")
         
+        # First, check if there's a final model directory
+        import sys
+        import os
+        sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+        from utils import get_data_directories
+        dirs = get_data_directories()
+        final_model_dir = dirs['final_model']
+        
+        # Check if final model exists
+        final_model_path = os.path.join(final_model_dir, 'bilstm_model.h5')
+        if os.path.exists(final_model_path):
+            print(f"🤖 Using final production model from: {final_model_dir}")
+            self.model_dir = final_model_dir
+            model_path = final_model_path
+            
+            # Load tokenizer and parameters from final model directory
+            tokenizer_path = os.path.join(final_model_dir, 'tokenizer.pickle')
+            params_path = os.path.join(final_model_dir, 'model_params.pickle')
+            
+            with open(tokenizer_path, 'rb') as f:
+                self.tokenizer = pickle.load(f)
+            print(f"Tokenizer loaded from: {tokenizer_path}")
+            
+            with open(params_path, 'rb') as f:
+                self.model_params = pickle.load(f)
+            print(f"Model parameters loaded from: {params_path}")
+            
+            self.model = load_model(model_path)
+            print(f"Model loaded from: {model_path}")
+            
+            print(f"Vocabulary size: {self.model_params['vocab_size']}")
+            print(f"Max sequence length: {self.model_params['max_length']}")
+            print(f"Label mapping: {self.model_params['label_mapping']}")
+            return
+        
+        # If no final model, fall back to training models
+        print(f"🤖 No final model found, checking training models...")
+        
         # Find the latest model
         model_files = [f for f in os.listdir(self.model_dir) if f.startswith('bilstm_model_') and f.endswith('.h5')]
         if model_files:
@@ -51,7 +89,7 @@ class MyanmarArticleAnalyzer:
             model_files.sort(reverse=True)
             latest_model = model_files[0]
             model_path = os.path.join(self.model_dir, latest_model)
-            print(f"🤖 Using latest model: {latest_model}")
+            print(f"🤖 Using latest training model: {latest_model}")
             
             # Extract timestamp from model filename
             timestamp = latest_model.replace('bilstm_model_', '').replace('.h5', '')
