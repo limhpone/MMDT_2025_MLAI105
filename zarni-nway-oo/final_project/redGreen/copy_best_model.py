@@ -29,8 +29,119 @@ def get_model_performance(session_pattern):
             return 0, 'Unknown'
     return 0, 'Unknown'
 
+def evaluate_model_performance(model_path, tokenizer_path, params_path):
+    """Evaluate the actual performance of an existing model"""
+    print(f"   🧪 Evaluating model performance on test data...")
+    
+    try:
+        import pickle
+        import numpy as np
+        import tensorflow as tf
+        from tensorflow.keras.models import load_model
+        from tensorflow.keras.preprocessing.sequence import pad_sequences
+        from sklearn.metrics import accuracy_score, classification_report
+        
+        # Load model and artifacts
+        model = load_model(model_path)
+        
+        with open(tokenizer_path, 'rb') as f:
+            tokenizer = pickle.load(f)
+            
+        with open(params_path, 'rb') as f:
+            model_params = pickle.load(f)
+        
+        # Get test data from the labelled dataset
+        from utils import get_data_directories
+        dirs = get_data_directories()
+        dataset_path = os.path.join(dirs['labelled_done'], "combined_labeled_dataset.csv")
+        
+        if not os.path.exists(dataset_path):
+            print(f"   ⚠️ No test dataset found - using estimated accuracy")
+            return 0.75, "Manually_Placed_Model", "ESTIMATED_GOOD"
+        
+        # Load and prepare test data
+        import pandas as pd
+        df = pd.read_csv(dataset_path)
+        
+        # Prepare text data
+        texts = df['tokens'].tolist()
+        labels = df['label'].tolist()
+        
+        # Convert labels to numeric (labels are already numeric in the dataset)
+        numeric_labels = [int(label) for label in labels]
+        
+        # Tokenize and pad sequences
+        sequences = tokenizer.texts_to_sequences(texts)
+        X = pad_sequences(sequences, maxlen=model_params['max_length'], padding='post', truncating='post')
+        
+        # Convert to one-hot encoding
+        num_classes = len(model_params['label_mapping'])
+        y = tf.keras.utils.to_categorical(numeric_labels, num_classes=num_classes)
+        
+        # Make predictions with cuDNN fallback handling
+        try:
+            predictions = model.predict(X, verbose=0)
+        except Exception as cudnn_error:
+            print(f"   ⚠️ cuDNN error encountered, trying alternative approach...")
+            # Try with smaller batch size to avoid cuDNN issues
+            try:
+                predictions = model.predict(X, verbose=0, batch_size=1)
+            except Exception:
+                # Last resort: disable cuDNN by recompiling model
+                print(f"   🔧 Attempting to disable cuDNN for evaluation...")
+                import tensorflow as tf
+                # Create a copy of the model with cuDNN disabled
+                model_config = model.get_config()
+                
+                # Modify LSTM layers to disable cuDNN
+                for layer_config in model_config['layers']:
+                    if layer_config['class_name'] in ['LSTM', 'Bidirectional']:
+                        if layer_config['class_name'] == 'Bidirectional':
+                            # For bidirectional, modify the wrapped layer
+                            layer_config['config']['layer']['config']['use_cudnn'] = False
+                        else:
+                            # For regular LSTM
+                            layer_config['config']['use_cudnn'] = False
+                
+                # Recreate model without cuDNN
+                temp_model = tf.keras.Model.from_config(model_config)
+                temp_model.set_weights(model.get_weights())
+                
+                predictions = temp_model.predict(X, verbose=0)
+                print(f"   ✅ Successfully evaluated with cuDNN disabled")
+        predicted_labels = np.argmax(predictions, axis=1)
+        true_labels = np.argmax(y, axis=1)
+        
+        # Calculate accuracy
+        accuracy = accuracy_score(true_labels, predicted_labels)
+        
+        # Get classification report
+        target_names = list(model_params['label_mapping'].values())
+        report = classification_report(true_labels, predicted_labels, target_names=target_names, output_dict=True, zero_division=0)
+        
+        print(f"   📊 Evaluation Results:")
+        print(f"      Test Accuracy: {accuracy:.4f}")
+        print(f"      Test Samples: {len(texts)}")
+        
+        # Determine quality based on accuracy
+        if accuracy >= 0.85:
+            quality = "EXCELLENT"
+        elif accuracy >= 0.70:
+            quality = "GOOD"
+        elif accuracy >= 0.50:
+            quality = "FAIR"
+        else:
+            quality = "POOR"
+        
+        return accuracy, "Evaluated_Model", quality
+        
+    except Exception as e:
+        print(f"   ❌ Evaluation failed: {e}")
+        print(f"   ⚠️ Falling back to estimated accuracy")
+        return 0.75, "Manually_Placed_Model", "ESTIMATED_GOOD"
+
 def analyze_existing_model(final_dir):
-    """Analyze an existing model in the final directory to estimate performance"""
+    """Analyze an existing model in the final directory to get actual performance"""
     print(f"   🔍 Analyzing existing model files...")
     
     # Check if we have the required files
@@ -42,7 +153,7 @@ def analyze_existing_model(final_dir):
         print(f"   ❌ Incomplete model files found")
         return 0, "Incomplete", "UNKNOWN"
     
-    # Try to get model info from params
+    # Try to get model info from params first
     try:
         import pickle
         with open(params_path, 'rb') as f:
@@ -58,20 +169,14 @@ def analyze_existing_model(final_dir):
         print(f"      Max Sequence Length: {max_length}")
         print(f"      Labels: {list(label_mapping.values())}")
         
-        # Estimate performance based on model characteristics
-        # This is a rough estimate - in practice, you'd want to run evaluation
-        estimated_accuracy = 0.75  # Assume good performance for manually placed models
-        model_name = "Manually_Placed_Model"
-        quality = "ESTIMATED_GOOD"
-        
-        print(f"   ⚠️ No performance metrics available - using estimated accuracy: {estimated_accuracy:.4f}")
-        print(f"   💡 Tip: Run evaluation to get actual performance metrics")
-        
-        return estimated_accuracy, model_name, quality
-        
     except Exception as e:
-        print(f"   ❌ Could not analyze model parameters: {e}")
+        print(f"   ❌ Could not read model parameters: {e}")
         return 0, "Unknown", "UNKNOWN"
+    
+    # Now evaluate the actual performance
+    accuracy, model_name, quality = evaluate_model_performance(model_path, tokenizer_path, params_path)
+    
+    return accuracy, model_name, quality
 
 def display_performance_assessment(accuracy, model_name):
     """Display performance assessment for a model"""
