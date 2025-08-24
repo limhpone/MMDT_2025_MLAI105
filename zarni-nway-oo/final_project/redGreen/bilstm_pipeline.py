@@ -29,7 +29,8 @@ class BiLSTMPipeline:
             'tokenizer': os.path.join(self.project_root, '2_processor', 'tokenizer', 'json_tokenizer.py'),
             'labeller': os.path.join(self.project_root, '2_processor', 'labeller', 'json_labeller.py'),
             'trainer': os.path.join(self.project_root, '3_trainer', 'trainer', 'bilstm_trainer.py'),
-            'analyzer': os.path.join(self.project_root, '4_analyzer', 'article_analyzer.py')
+            'analyzer': os.path.join(self.project_root, '4_analyzer', 'article_analyzer.py'),
+            'multi_model_analyzer': os.path.join(self.project_root, '4_analyzer', 'multi_model_analyzer.py')
         }
         
         # Initialize myword tokenizer
@@ -841,6 +842,145 @@ class BiLSTMPipeline:
         
         return True
     
+    def analyze_articles_multi_model(self):
+        """Run multi-model article analysis with file processing workflow (raw → processed → done)"""
+        print("🤖 Starting Multi-Model Article Analysis Pipeline")
+        print("=" * 60)
+        
+        # Define directories
+        raw_dir = os.path.join(self.project_root, "data", "model_tester", "raw")
+        processed_dir = os.path.join(self.project_root, "data", "model_tester", "processed")
+        done_dir = os.path.join(self.project_root, "data", "model_tester", "done")
+        
+        # Create directories if they don't exist
+        os.makedirs(raw_dir, exist_ok=True)
+        os.makedirs(processed_dir, exist_ok=True)
+        os.makedirs(done_dir, exist_ok=True)
+        
+        print(f"📁 Raw directory created/verified: {raw_dir}")
+        print(f"📁 Processed directory created/verified: {processed_dir}")
+        print(f"📁 Done directory created/verified: {done_dir}")
+        
+        # Check if raw files exist
+        if not os.path.exists(raw_dir):
+            print(f"❌ Raw directory not found: {raw_dir}")
+            return False
+        
+        raw_files = [f for f in os.listdir(raw_dir) if f.endswith('.txt')]
+        if not raw_files:
+            print(f"⚠️  No .txt files found in {raw_dir}")
+            return False
+        
+        print(f"📂 Found {len(raw_files)} files to process with multiple models")
+        print(f"   Raw: {raw_dir}")
+        print(f"   Processed: {processed_dir}")
+        print(f"   Done: {done_dir}")
+        print()
+        
+        start_time = time.time()
+        
+        try:
+            # Step 1: Tokenize and save files to processed directory
+            print("🔄 Step 1: Tokenizing and saving files to processed directory...")
+            self._tokenize_raw_files(raw_dir, processed_dir, raw_files)
+            
+            # Step 2: Run multi-model analyzer on processed directory
+            print("\n🤖 Step 2: Running multi-model article analysis...")
+            self.print_progress(1, 1, "Multi-Model Article Analysis")
+            
+            # Run multi-model analyzer
+            result = self.run_multi_model_analyzer_on_processed(processed_dir)
+            
+            if not result:
+                print("❌ Multi-model analysis failed!")
+                return False
+            
+            # Step 3: Move files from processed to done
+            print("\n📦 Step 3: Moving processed files to done directory...")
+            for filename in raw_files:
+                src = os.path.join(processed_dir, filename)
+                dst = os.path.join(done_dir, filename)
+                if os.path.exists(src):
+                    shutil.move(src, dst)
+                    print(f"   ✅ Moved: {filename}")
+            
+            total_time = time.time() - start_time
+            
+            print("\n" + "=" * 60)
+            print("🎉 Multi-Model Article Analysis Pipeline Completed!")
+            print(f"⏱️  Total execution time: {total_time:.2f} seconds")
+            print(f"📊 Processed {len(raw_files)} articles with multiple models")
+            print(f"📁 Files moved to: {done_dir}")
+            print("📈 Multi-model comparison reports generated in: 4_analyzer/multi_model_comparisons/")
+            
+            return True
+            
+        except Exception as e:
+            print(f"❌ Error in multi-model analysis pipeline: {e}")
+            return False
+    
+    def run_multi_model_analyzer_on_processed(self, processed_dir):
+        """Run the multi-model analyzer script on the processed directory"""
+        script_path = self.scripts['multi_model_analyzer']
+        
+        print(f"🚀 Running Multi-Model Article Analysis...")
+        print(f"Script: {script_path}")
+        print(f"Processing: {processed_dir}")
+        print("-" * 60)
+        
+        start_time = time.time()
+        
+        try:
+            # Prepare environment
+            env = os.environ.copy()
+            env['PYTHONUNBUFFERED'] = '1'
+            
+            # Set environment variable to tell analyzer to use processed directory
+            env['PROCESSED_DIR'] = processed_dir
+            
+            # Run the multi-model analyzer script directly
+            process = subprocess.Popen([sys.executable, '-u', script_path], 
+                                     stdout=subprocess.PIPE, 
+                                     stderr=subprocess.STDOUT,
+                                     text=True, 
+                                     bufsize=0,
+                                     universal_newlines=True,
+                                     env=env)
+            
+            output_lines = []
+            
+            # Stream output in real-time
+            while True:
+                output = process.stdout.readline()
+                if output == '' and process.poll() is not None:
+                    break
+                if output:
+                    line = output.strip()
+                    print(line, flush=True)
+                    output_lines.append(line)
+            
+            return_code = process.poll()
+            elapsed_time = time.time() - start_time
+            
+            if return_code == 0:
+                print("-" * 60)
+                print(f"✅ Multi-Model Article Analysis completed successfully!")
+                print(f"⏱️  Execution time: {elapsed_time:.2f} seconds")
+                return True
+            else:
+                print("-" * 60)
+                print(f"❌ Multi-Model Article Analysis failed with return code {return_code}!")
+                print(f"⏱️  Execution time: {elapsed_time:.2f} seconds")
+                return False
+            
+        except Exception as e:
+            elapsed_time = time.time() - start_time
+            print("-" * 60)
+            print(f"❌ Multi-Model Article Analysis failed!")
+            print(f"⏱️  Execution time: {elapsed_time:.2f} seconds")
+            print(f"Error: {e}")
+            return False
+    
     def show_menu(self):
         """Display the main menu"""
         print("\n" + "=" * 60)
@@ -851,7 +991,8 @@ class BiLSTMPipeline:
         print("  1. Scraping - Collect news articles from websites")
         print("  2. Data Preparation - Complete processing pipeline")
         print("  3. Model Training - Train Bi-LSTM classification model")
-        print("  4. Analysis - Analyze articles with trained model")
+        print("  4. Analysis - Analyze articles with single best model")
+        print("  5. Multi-Model Analysis - Compare multiple trained models")
         print()
         print("Maintenance:")
         print("  9. Cleanup - Clean up done/ folders (except raw/done)")
@@ -868,7 +1009,7 @@ class BiLSTMPipeline:
             self.show_menu()
             
             try:
-                choice = input("Select an option (0-4, 9): ").strip()
+                choice = input("Select an option (0-5, 9): ").strip()
                 
                 if choice == '0':
                     print("👋 Goodbye!")
@@ -881,10 +1022,12 @@ class BiLSTMPipeline:
                     self.train_model()
                 elif choice == '4':
                     self.analyze_articles()
+                elif choice == '5':
+                    self.analyze_articles_multi_model()
                 elif choice == '9':
                     self.cleanup_done_folders()
                 else:
-                    print("❌ Invalid option! Please select 0-4 or 9.")
+                    print("❌ Invalid option! Please select 0-5 or 9.")
                     continue
                 
                 input("\nPress Enter to continue...")

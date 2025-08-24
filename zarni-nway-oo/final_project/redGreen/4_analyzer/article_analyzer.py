@@ -64,7 +64,34 @@ class MyanmarArticleAnalyzer:
             params_path = os.path.join(final_model_dir, 'model_params.pickle')
             
             with open(tokenizer_path, 'rb') as f:
-                self.tokenizer = pickle.load(f)
+                tokenizer_data = pickle.load(f)
+            
+            # Handle different tokenizer formats
+            if hasattr(tokenizer_data, 'word_index'):
+                # New SimpleTokenizer class format
+                self.tokenizer = tokenizer_data
+            elif isinstance(tokenizer_data, dict) and 'word_index' in tokenizer_data:
+                # Dictionary format - create compatible wrapper
+                class CompatibleTokenizer:
+                    def __init__(self, word_index):
+                        self.word_index = word_index
+                    
+                    def texts_to_sequences(self, texts):
+                        sequences = []
+                        for text in texts:
+                            if isinstance(text, str):
+                                tokens = text.strip().split()
+                            else:
+                                tokens = text
+                            sequence = [self.word_index.get(token, 1) for token in tokens]  # 1 is OOV
+                            sequences.append(sequence)
+                        return sequences
+                
+                self.tokenizer = CompatibleTokenizer(tokenizer_data['word_index'])
+            else:
+                # Old format
+                self.tokenizer = tokenizer_data
+                
             print(f"Tokenizer loaded from: {tokenizer_path}")
             
             with open(params_path, 'rb') as f:

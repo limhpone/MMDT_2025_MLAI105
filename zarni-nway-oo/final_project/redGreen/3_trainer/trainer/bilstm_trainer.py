@@ -11,7 +11,7 @@ from sklearn.utils.class_weight import compute_class_weight
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Embedding, LSTM, Bidirectional, Dense, Dropout
-from tensorflow.keras.preprocessing.text import Tokenizer
+# from tensorflow.keras.preprocessing.text import Tokenizer  # Not needed - data is already tokenized
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.utils import to_categorical
 import matplotlib.pyplot as plt
@@ -29,7 +29,8 @@ class BiLSTMTrainer:
         self.dataset_path = dataset_path
         self.model_output_dir = model_output_dir
         self.model = None
-        self.tokenizer = None
+        self.word_to_index = None
+        self.index_to_word = None
         self.max_length = None
         self.vocab_size = None
         
@@ -92,22 +93,64 @@ class BiLSTMTrainer:
     
     def preprocess_texts(self, texts, labels, vocab_size=10000, max_length=100):
         """
-        Preprocess texts for training
+        Preprocess already tokenized texts for training
         
         Args:
-            texts: Array of tokenized text strings
+            texts: Array of tokenized text strings (space-separated tokens)
             labels: Array of labels
             vocab_size: Maximum vocabulary size
             max_length: Maximum sequence length
         """
-        print("Preprocessing texts...")
+        print("Preprocessing already tokenized texts...")
         
-        # Initialize tokenizer
-        self.tokenizer = Tokenizer(num_words=vocab_size, oov_token="<OOV>")
-        self.tokenizer.fit_on_texts(texts)
+        # Convert tokenized strings to list of tokens
+        tokenized_texts = []
+        for text in texts:
+            if isinstance(text, str):
+                # Split by spaces to get individual tokens
+                tokens = text.strip().split()
+                tokenized_texts.append(tokens)
+            else:
+                print(f"Warning: Non-string text found: {text}")
+                tokenized_texts.append([])
         
-        # Convert texts to sequences
-        sequences = self.tokenizer.texts_to_sequences(texts)
+        print(f"Sample tokenized text: {tokenized_texts[0][:10]}...")  # Show first 10 tokens
+        
+        # Build vocabulary from tokenized texts
+        word_freq = {}
+        for tokens in tokenized_texts:
+            for token in tokens:
+                word_freq[token] = word_freq.get(token, 0) + 1
+        
+        # Sort by frequency and take top vocab_size-1 (reserve 1 for OOV)
+        sorted_words = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)
+        vocab_words = [word for word, freq in sorted_words[:vocab_size-1]]
+        
+        # Create word to index mapping (1-indexed, 0 reserved for padding)
+        self.word_to_index = {'<PAD>': 0, '<OOV>': 1}
+        for i, word in enumerate(vocab_words, start=2):
+            self.word_to_index[word] = i
+        
+        # Create index to word mapping
+        self.index_to_word = {idx: word for word, idx in self.word_to_index.items()}
+        
+        # Convert tokens to sequences of indices
+        sequences = []
+        oov_count = 0
+        total_tokens = 0
+        
+        for tokens in tokenized_texts:
+            sequence = []
+            for token in tokens:
+                total_tokens += 1
+                if token in self.word_to_index:
+                    sequence.append(self.word_to_index[token])
+                else:
+                    sequence.append(self.word_to_index['<OOV>'])  # OOV token
+                    oov_count += 1
+            sequences.append(sequence)
+        
+        print(f"OOV rate: {oov_count/total_tokens*100:.2f}% ({oov_count}/{total_tokens} tokens)")
         
         # Pad sequences
         padded_sequences = pad_sequences(sequences, maxlen=max_length, padding='post', truncating='post')
@@ -116,10 +159,10 @@ class BiLSTMTrainer:
         categorical_labels = to_categorical(labels, num_classes=3)
         
         # Store parameters
-        self.vocab_size = min(vocab_size, len(self.tokenizer.word_index)) + 1
+        self.vocab_size = len(self.word_to_index)
         self.max_length = max_length
         
-        print(f"Vocabulary size: {self.vocab_size}")
+        print(f"Built vocabulary size: {self.vocab_size}")
         print(f"Max sequence length: {self.max_length}")
         print(f"Padded sequences shape: {padded_sequences.shape}")
         print(f"Categorical labels shape: {categorical_labels.shape}")
@@ -158,15 +201,12 @@ class BiLSTMTrainer:
                 mask_zero=True
             ),
             
-            # Bidirectional LSTM layers
-            Bidirectional(LSTM(lstm_units, return_sequences=True, dropout=dropout_rate)),
+            # Single Bidirectional LSTM layer (simplified)
             Bidirectional(LSTM(lstm_units, dropout=dropout_rate)),
             
-            # Dense layers
-            Dense(64, activation='relu'),
-            Dropout(dropout_rate),
+            # Simplified dense layers
             Dense(32, activation='relu'),
-            Dropout(dropout_rate),
+            Dropout(0.3),  # Reduced dropout
             
             # Output layer
             Dense(3, activation='softmax')  # 3 classes: red, neutral, green
@@ -183,14 +223,17 @@ class BiLSTMTrainer:
         
         return model
     
-    def _capture_model_architecture(self, model):
+    def _capture_model_architecture(self, model, capture_after_training=False):
         """Capture detailed model architecture information"""
         import io
         
-        # First compile the model to ensure it's built properly
-        model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+        if not capture_after_training:
+            # First compile the model to ensure it's built properly
+            from tensorflow.keras.optimizers import Adam
+            optimizer = Adam(learning_rate=0.001)  # Custom learning rate
+            model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
         
-        # Capture model summary as string
+        # Capture model summary as string (model should be built by now)
         stringio = io.StringIO()
         model.summary(print_fn=lambda x: stringio.write(x + '\n'))
         model_summary_text = stringio.getvalue()
@@ -288,29 +331,40 @@ class BiLSTMTrainer:
         print(f"Training set shape: {X_train.shape}, {y_train.shape}")
         print(f"Test set shape: {X_test.shape}, {y_test.shape}")
         
+        # Compute class weights to handle imbalanced predictions
+        y_train_labels = y_train.argmax(axis=1)
+        class_weights = compute_class_weight(
+            'balanced',
+            classes=np.unique(y_train_labels),
+            y=y_train_labels
+        )
+        class_weight_dict = {i: class_weights[i] for i in range(3)}
+        print(f"Class weights: {class_weight_dict}")
+        
         # Define callbacks with improved patience for more training
         callbacks = [
             tf.keras.callbacks.EarlyStopping(
-                monitor='val_loss',
-                patience=8,  # Increased patience to allow more training
+                monitor='val_accuracy',  # Monitor accuracy instead of loss
+                patience=15,  # Increased patience to allow more training
                 restore_best_weights=True,
-                min_delta=0.001  # Minimum change to qualify as improvement
+                min_delta=0.01  # Require 1% improvement
             ),
             tf.keras.callbacks.ReduceLROnPlateau(
-                monitor='val_loss',
-                factor=0.5,  # Less aggressive reduction
-                patience=5,  # More patience before reducing LR
-                min_lr=0.0001,  # Lower minimum learning rate
+                monitor='val_accuracy',
+                factor=0.2,  # More aggressive LR reduction
+                patience=8,  # More patience before reducing LR
+                min_lr=0.00001,  # Lower minimum learning rate
                 verbose=1
             )
         ]
         
-        # Train model
+        # Train model with class weights
         history = self.model.fit(
             X_train, y_train,
             validation_split=validation_split,
             epochs=epochs,
             batch_size=batch_size,
+            class_weight=class_weight_dict,  # Add class weights
             callbacks=callbacks,
             verbose=1
         )
@@ -370,6 +424,10 @@ class BiLSTMTrainer:
         self.X_test = X_test
         self.y_test = y_test
         self.y_pred = y_pred
+        
+        # Capture complete model architecture after training
+        print("Capturing complete model architecture after training...")
+        self._capture_model_architecture(self.model, capture_after_training=True)
         
         return history
     
@@ -602,17 +660,35 @@ class BiLSTMTrainer:
         self.model.save(model_path)
         print(f"Model saved to: {model_path}")
         
-        # Save tokenizer to session reports directory
+        # Save vocabulary mappings to session reports directory
+        vocab_path = os.path.join(self.session_reports_dir, 'vocabulary.pickle')
+        vocab_data = {
+            'word_to_index': self.word_to_index,
+            'index_to_word': self.index_to_word
+        }
+        with open(vocab_path, 'wb') as f:
+            pickle.dump(vocab_data, f)
+        print(f"Vocabulary saved to: {vocab_path}")
+        
+        # Create compatible tokenizer data (simple dict-based approach)
+        tokenizer_data = {
+            'word_index': self.word_to_index,
+            'texts_to_sequences': 'use_word_index_directly'  # Indicator for analysis scripts
+        }
+        
+        # Save compatible tokenizer to session reports directory
         tokenizer_path = os.path.join(self.session_reports_dir, 'tokenizer.pickle')
         with open(tokenizer_path, 'wb') as f:
-            pickle.dump(self.tokenizer, f)
+            pickle.dump(tokenizer_data, f)
         print(f"Tokenizer saved to: {tokenizer_path}")
         
         # Save model parameters to session reports directory
         params = {
             'vocab_size': self.vocab_size,
             'max_length': self.max_length,
-            'label_mapping': self.label_mapping
+            'label_mapping': self.label_mapping,
+            'word_to_index': self.word_to_index,
+            'index_to_word': self.index_to_word
         }
         params_path = os.path.join(self.session_reports_dir, 'model_params.pickle')
         with open(params_path, 'wb') as f:
@@ -631,7 +707,73 @@ class BiLSTMTrainer:
             pickle.dump(session_info, f)
         print(f"Session info saved to: {session_info_path}")
         
+        # Copy to final model directory structure
+        self._copy_to_final_model(session_name, model_filename)
+        
         return session_name
+    
+    def _copy_to_final_model(self, session_name, model_filename):
+        """Copy model files to final model directory structure"""
+        print("Copying files to final model directory structure...")
+        
+        # Get test accuracy from training report
+        test_accuracy = self.training_report['evaluation_results']['test_accuracy']
+        accuracy_str = f"{test_accuracy:.4f}".replace('.', '_')
+        
+        # Create model directory name: model_name + accuracy
+        model_base_name = model_filename.replace('.h5', '')
+        final_model_dir_name = f"{model_base_name}_acc_{accuracy_str}"
+        
+        # Import project utilities for final model directory
+        import sys
+        sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+        from utils import get_data_directories
+        dirs = get_data_directories()
+        final_models_base_dir = dirs['final_model']
+        
+        # Create specific model directory
+        final_model_dir = os.path.join(final_models_base_dir, final_model_dir_name)
+        os.makedirs(final_model_dir, exist_ok=True)
+        print(f"📁 Created final model directory: {final_model_dir}")
+        
+        # Copy model file
+        src_model_path = os.path.join(self.model_output_dir, model_filename)
+        dst_model_path = os.path.join(final_model_dir, 'bilstm_model.h5')
+        shutil.copy2(src_model_path, dst_model_path)
+        print(f"✅ Model copied: {dst_model_path}")
+        
+        # Copy tokenizer
+        src_tokenizer_path = os.path.join(self.session_reports_dir, 'tokenizer.pickle')
+        dst_tokenizer_path = os.path.join(final_model_dir, 'tokenizer.pickle')
+        shutil.copy2(src_tokenizer_path, dst_tokenizer_path)
+        print(f"✅ Tokenizer copied: {dst_tokenizer_path}")
+        
+        # Copy model parameters
+        src_params_path = os.path.join(self.session_reports_dir, 'model_params.pickle')
+        dst_params_path = os.path.join(final_model_dir, 'model_params.pickle')
+        shutil.copy2(src_params_path, dst_params_path)
+        print(f"✅ Model parameters copied: {dst_params_path}")
+        
+        # Create model info file
+        model_info = {
+            'model_name': model_base_name,
+            'accuracy': test_accuracy,
+            'session_name': session_name,
+            'training_date': datetime.now().isoformat(),
+            'model_path': 'bilstm_model.h5',
+            'tokenizer_path': 'tokenizer.pickle',
+            'params_path': 'model_params.pickle',
+            'performance_rating': self.training_report['performance_analysis']['performance_summary']['overall_rating'],
+            'class_analysis': self.training_report['performance_analysis']['class_analysis']
+        }
+        
+        model_info_path = os.path.join(final_model_dir, 'model_info.json')
+        with open(model_info_path, 'w') as f:
+            json.dump(model_info, f, indent=2)
+        print(f"✅ Model info saved: {model_info_path}")
+        
+        print(f"🎯 Final model deployment completed: {final_model_dir_name}")
+        return final_model_dir
     
     def generate_training_report(self, session_name=None):
         """Generate comprehensive training report in markdown format"""
@@ -967,25 +1109,6 @@ This likely explains poor performance on the RED category (minority class).
         
         print(f"Moved {files_moved} files to done folder")
     
-    def _auto_copy_to_final(self):
-        """Automatically run smart model deployment to final directory"""
-        try:
-            # Import the copy function from the utility script
-            import sys
-            sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
-            from copy_best_model import copy_best_model_to_final
-            
-            success = copy_best_model_to_final()
-            if success:
-                print("🎯 Smart deployment completed!")
-                print("🚀 Check final model directory status above")
-            else:
-                print("❌ Smart deployment failed")
-                print("   Please run manually: python copy_best_model.py")
-                
-        except Exception as e:
-            print(f"❌ Error during smart deployment: {e}")
-            print("   Please run manually: python copy_best_model.py")
     
     def run_full_training(self, vocab_size=10000, max_length=100, embedding_dim=100,
                          lstm_units=64, dropout_rate=0.3, epochs=10, batch_size=32):
@@ -1068,8 +1191,7 @@ This likely explains poor performance on the RED category (minority class).
             print(f"   Performance Rating: ❌ POOR (<50%)")
             print(f"   Status: 🛠️ Needs significant improvements")
         
-        print(f"\n🔄 Running smart model deployment...")
-        self._auto_copy_to_final()
+        print(f"\n🔄 Model deployed to final directory structure successfully!")
 
 def main():
     """Main training function"""
@@ -1092,15 +1214,15 @@ def main():
     # Initialize trainer
     trainer = BiLSTMTrainer(dataset_path, model_output_dir)
     
-    # Run training with improved parameters based on analysis
+    # Run training with improved parameters for better class balance
     trainer.run_full_training(
-        vocab_size=15000,      # Slightly smaller vocab for better generalization
-        max_length=500,        # Reduced length for better performance  
-        embedding_dim=256,     # Larger embeddings for better representation
-        lstm_units=128,        # More units for better capacity
-        dropout_rate=0.5,      # Higher dropout to prevent overfitting
-        epochs=50,             # More epochs (early stopping will control)
-        batch_size=64          # Larger batch size for stable gradients
+        vocab_size=20000,      # Increased vocab size for better token coverage
+        max_length=1500,       # Keep long sequences to preserve all data
+        embedding_dim=128,     # Reduced embedding dim for better generalization
+        lstm_units=64,         # Reduced LSTM units to prevent overfitting
+        dropout_rate=0.3,      # Reduced dropout to allow better learning
+        epochs=30,             # Moderate epochs with early stopping
+        batch_size=16          # Smaller batch size for longer sequences
     )
 
 if __name__ == "__main__":
