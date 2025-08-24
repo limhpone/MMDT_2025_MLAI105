@@ -68,7 +68,7 @@ class LightweightTransformer:
         
         # Two transformer blocks
         transformer_block1 = TransformerBlock(embed_dim, num_heads, ff_dim)
-        x = transformer_block1(x)
+        x = transformer_block1(x, training=True)
         
         transformer_block2 = TransformerBlock(embed_dim, num_heads, ff_dim)
         x = transformer_block2(x)
@@ -98,7 +98,7 @@ def main():
     print("🤖 Lightweight Transformer Training Started")
     
     # Load cached data
-    cache_path = os.path.join('..', 'data_cache.pkl')
+    cache_path = os.path.join(os.path.dirname(__file__), '..', 'data_cache.pkl')
     with open(cache_path, 'rb') as f:
         data = pickle.load(f)
     

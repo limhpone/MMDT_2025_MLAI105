@@ -226,7 +226,7 @@ def main():
     print("🤖 Enhanced BiLSTM Training Started")
     
     # Load cached data
-    cache_path = os.path.join('..', 'data_cache.pkl')
+    cache_path = os.path.join(os.path.dirname(__file__), '..', 'data_cache.pkl')
     with open(cache_path, 'rb') as f:
         data = pickle.load(f)
     

@@ -389,14 +389,14 @@ def main():
             # Display comparison table
             df = pd.DataFrame(comparison_data)
             
-            # Color-code predictions
+            # Color-code predictions with darker backgrounds for better contrast
             def color_prediction(val):
                 if val == 'RED':
-                    return 'background-color: #ffcccc'
+                    return 'background-color: #ff6b6b; color: white; font-weight: bold'
                 elif val == 'GREEN':
-                    return 'background-color: #ccffcc'
+                    return 'background-color: #4ecdc4; color: white; font-weight: bold'
                 elif val == 'NEUTRAL':
-                    return 'background-color: #ffffcc'
+                    return 'background-color: #ffa726; color: white; font-weight: bold'
                 return ''
             
             styled_df = df.style.applymap(color_prediction, subset=['Prediction'])

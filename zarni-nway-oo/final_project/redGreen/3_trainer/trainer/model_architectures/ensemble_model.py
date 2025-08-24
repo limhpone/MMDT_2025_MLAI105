@@ -120,14 +120,14 @@ def main():
     print("🤖 Ensemble Model Training Started")
     
     # Load cached data for test set
-    cache_path = os.path.join('..', 'data_cache.pkl')
+    cache_path = os.path.join(os.path.dirname(__file__), '..', 'data_cache.pkl')
     with open(cache_path, 'rb') as f:
         data = pickle.load(f)
     
     labels = data['labels']
     
     # Split to get test set (same split as other models)
-    _, y_test = train_test_split(labels, labels, test_size=0.2, random_state=42, stratify=labels)
+    _, y_test = train_test_split(features, labels, test_size=0.2, random_state=42, stratify=labels)
     
     # Initialize ensemble
     ensemble = EnsembleModel()

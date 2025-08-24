@@ -1217,9 +1217,9 @@ def main():
     # Run training with improved parameters for better class balance
     trainer.run_full_training(
         vocab_size=20000,      # Increased vocab size for better token coverage
-        max_length=1500,       # Keep long sequences to preserve all data
-        embedding_dim=128,     # Reduced embedding dim for better generalization
-        lstm_units=64,         # Reduced LSTM units to prevent overfitting
+        max_length=2000,       # Keep long sequences to preserve all data
+        embedding_dim=64,     # Reduced embedding dim for better generalization
+        lstm_units=32,         # Reduced LSTM units to prevent overfitting
         dropout_rate=0.3,      # Reduced dropout to allow better learning
         epochs=30,             # Moderate epochs with early stopping
         batch_size=16          # Smaller batch size for longer sequences

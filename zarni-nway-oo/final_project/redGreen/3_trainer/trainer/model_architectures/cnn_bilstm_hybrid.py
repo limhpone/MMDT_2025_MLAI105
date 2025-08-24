@@ -37,8 +37,8 @@ class CNNBiLSTMHybrid:
         filter_sizes = [2, 3, 4, 5]
         
         for filter_size in filter_sizes:
-            conv = Conv1D(filters=64, kernel_size=filter_size, activation='relu')(embedding)
-            pool = MaxPooling1D(pool_size=2)(conv)
+            conv = Conv1D(filters=64, kernel_size=filter_size, padding='same', activation='relu')(embedding)
+            pool = MaxPooling1D(pool_size=2, padding='same')(conv)
             cnn_outputs.append(pool)
         
         # Concatenate CNN outputs
@@ -77,7 +77,7 @@ def main():
     print("🤖 CNN + BiLSTM Hybrid Training Started")
     
     # Load cached data
-    cache_path = os.path.join('..', 'data_cache.pkl')
+    cache_path = os.path.join(os.path.dirname(__file__), '..', 'data_cache.pkl')
     with open(cache_path, 'rb') as f:
         data = pickle.load(f)
     
