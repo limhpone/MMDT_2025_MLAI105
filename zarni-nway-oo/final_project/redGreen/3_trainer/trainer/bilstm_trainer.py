@@ -192,6 +192,26 @@ class BiLSTMTrainer:
         }
         print("Building Bi-LSTM model...")
         
+        # model = Sequential([
+        #     # Embedding layer
+        #     Embedding(
+        #         input_dim=self.vocab_size,
+        #         output_dim=embedding_dim,
+        #         input_length=self.max_length,
+        #         mask_zero=True
+        #     ),
+            
+        #     # Single Bidirectional LSTM layer (simplified)
+        #     Bidirectional(LSTM(lstm_units, dropout=dropout_rate)),
+            
+        #     # Simplified dense layers
+        #     Dense(32, activation='relu'),
+        #     Dropout(0.3),  # Reduced dropout
+            
+        #     # Output layer
+        #     Dense(3, activation='softmax')  # 3 classes: red, neutral, green
+        # ])
+        
         model = Sequential([
             # Embedding layer
             Embedding(
@@ -201,12 +221,15 @@ class BiLSTMTrainer:
                 mask_zero=True
             ),
             
-            # Single Bidirectional LSTM layer (simplified)
+            # Bidirectional LSTM layers
+            Bidirectional(LSTM(lstm_units, return_sequences=True, dropout=dropout_rate)),
             Bidirectional(LSTM(lstm_units, dropout=dropout_rate)),
             
-            # Simplified dense layers
+            # Dense layers
+            Dense(64, activation='relu'),
+            Dropout(dropout_rate),
             Dense(32, activation='relu'),
-            Dropout(0.3),  # Reduced dropout
+            Dropout(dropout_rate),
             
             # Output layer
             Dense(3, activation='softmax')  # 3 classes: red, neutral, green
